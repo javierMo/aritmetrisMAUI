@@ -1,0 +1,91 @@
+﻿# Build outputs
+bin/
+obj/
+AppPackages/
+[Bb]uild[Ll]og.*
+
+# User-specific files
+*.user
+*.userosscache
+*.suo
+*.sln.docstates
+*.local.json
+
+# Visual Studio / VSCode
+.vs/
+.vscode/
+.idea/
+*.swp
+*.cache
+*.config
+
+# .NET
+project.lock.json
+project.fragment.lock.json
+artifacts/
+*.nuget.props
+*.nuget.targets
+
+# NuGet
+*.nupkg
+*.snupkg
+*.nuspec
+*.psmdcp
+*.nupkg.metadata
+*.dll
+*.exe
+*.cache
+*.pdb
+
+# Xamarin / MAUI specific
+*.apk
+*.aab
+*.ap_
+*.ipa
+*.dSYM
+*.app
+*.xcuserstate
+*.xcworkspace
+*.xcuserdata
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+!*.xcodeproj/project.xcworkspace/
+
+# Android
+**/platforms/android/
+**/*.keystore
+**/*.jks
+
+# iOS
+**/platforms/ios/
+*.plist.user
+*.moved-aside
+*.xcuserdatad
+
+# macOS
+*.DS_Store
+
+# Windows
+*.appx
+*.appxbundle
+*.appxupload
+*.appxsym
+*.msix
+*.msixbundle
+*.msixupload
+*.msixsym
+*.cer
+*.pfx
+Package.StoreAssociation.xml
+Package.appxmanifest
+AppxManifest.xml
+BundleArtifacts/
+
+# Logs
+*.log
+*.tlog
+
+# Crash / dumps
+*.stackdump
+*.dmp

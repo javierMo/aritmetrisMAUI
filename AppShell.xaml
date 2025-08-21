@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell
+    x:Class="AritmetrisMAUI.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:AritmetrisMAUI"
+    xmlns:pages="clr-namespace:Aritmetris.Pages"
+    Shell.FlyoutBehavior="Disabled"
+    Title="AritmetrisMAUI">
+
+    <!--<ShellContent
+        Title="Home"
+        ContentTemplate="{DataTemplate local:MainPage}"
+        Route="MainPage" />-->
+    <ShellContent Route="MenuPage"
+            ContentTemplate="{DataTemplate pages:MenuPage}" />
+    <ShellContent Route="GamePage"
+            ContentTemplate="{DataTemplate pages:GamePage}" />
+
+</Shell>
