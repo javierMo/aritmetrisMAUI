@@ -8,32 +8,138 @@ public sealed class Board
     public Cell[,] Grid { get; }
     public int TargetValue { get; set; } = 10;
 
-    public Board(int width=10,int height=20)
+    public Board(int width = 10, int height = 20)
     {
-        Width=width; Height=height;
-        Grid=new Cell[height,width];
-        for(int y=0;y<height;y++) for(int x=0;x<width;x++) Grid[y,x]=Cell.Empty();
+        Width = width;
+        Height = height;
+        Grid = new Cell[height, width];
+        for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++)
+                Grid[y, x] = Cell.Empty();
     }
 
-    public bool Fits(Piece3 piece,int nx,int ny)
+    public bool Fits(Piece3 piece, int nx, int ny)
     {
-        foreach(var (dx,dy,cell) in piece.GetBlocks())
+        foreach (var (dx, dy, cell) in piece.GetBlocks())
         {
-            int x=nx+dx,y=ny+dy;
-            if(x<0||x>=Width||y<0||y>=Height) return false;
-            if(!Grid[y,x].IsEmpty) return false;
+            int x = nx + dx, y = ny + dy;
+            if (x < 0 || x >= Width || y < 0 || y >= Height) return false;
+            if (!Grid[y, x].IsEmpty) return false;
         }
         return true;
     }
 
+    // Mantén tu Place existente si lo usas en otros sitios
     public void Place(Piece3 piece)
     {
-        foreach(var (dx,dy,cell) in piece.GetBlocks())
+        foreach (var (dx, dy, cell) in piece.GetBlocks())
         {
-            int x=piece.X+dx,y=piece.Y+dy;
-            if(x>=0&&x<Width&&y>=0&&y<Height)
-                Grid[y,x]=cell;
+            int x = piece.X + dx, y = piece.Y + dy;
+            if (x >= 0 && x < Width && y >= 0 && y < Height)
+                Grid[y, x] = cell;
         }
+    }
+
+    /// <summary>
+    /// "Rompe" la pieza: cada bloque cae independientemente.
+    /// - Números: caen hasta encontrar cualquier celda NO vacía o el fondo.
+    /// - Operadores: caen hasta quedar justo encima de un Número.
+    ///   Si debajo hay vacío u operador, siguen cayendo; si no hay número, paran al fondo.
+    /// </summary>
+    public void PlaceWithBreak(Piece3 piece)
+    {
+        foreach (var (dx, dy, cell) in piece.GetBlocks())
+        {
+            int x = piece.X + dx;
+            int y = piece.Y + dy;
+
+            while (true)
+            {
+                int ny = y + 1;
+                if (ny >= Height) break;
+
+                var below = Grid[ny, x];
+                if (cell.Type == CellType.Operator)
+                {
+                    // Operador: busca quedar sobre un número
+                    if (below.Type == CellType.Number) break;
+                    if (below.Type == CellType.Empty) { y = ny; continue; }
+                    // debajo hay operador -> detén para no apilar operadores eternamente
+                    break;
+                }
+                else
+                {
+                    // Número: detén sobre cualquier celda no vacía; si vacío, sigue
+                    if (!below.IsEmpty) break;
+                    y = ny;
+                }
+            }
+
+            if (x >= 0 && x < Width && y >= 0 && y < Height)
+                Grid[y, x] = cell;
+        }
+    }
+
+    /// <summary>
+    /// Asienta la pieza con caída por grupos, sin distinguir tipos de celda:
+    /// - En cada paso, las celdas que pueden bajar bajan 1.
+    /// - Las que no pueden bajar se fijan.
+    /// - Los “fragmentos” conectados de las que sí pueden bajar continúan cayendo.
+    /// </summary>
+    public void SettleWithFallingGroups(Piece3 piece)
+    {
+        // Grupo inicial con las celdas situadas en el tablero
+        var startCells = piece.GetBlocks()
+                              .Select(b => new FallingCell(piece.X + b.dx, piece.Y + b.dy, b.cell))
+                              .ToList();
+
+        var groups = new List<FallingGroup> { new FallingGroup(startCells) };
+
+        bool anyProgress;
+        do
+        {
+            anyProgress = false;
+            var nextGroups = new List<FallingGroup>();
+            var toLock = new List<FallingCell>();
+
+            foreach (var g in groups)
+            {
+                var res = g.TryMoveDownWithBreak(this, groups);
+
+                if (res.MovedAll)
+                {
+                    nextGroups.Add(g);
+                    anyProgress = true;
+                }
+                else if (res.BlockedAll)
+                {
+                    toLock.AddRange(g.Cells.Select(c => new FallingCell(c.X, c.Y, c.Cell)));
+                }
+                else
+                {
+                    if (res.Locked.Count > 0) toLock.AddRange(res.Locked);
+                    nextGroups.AddRange(res.Fragments);
+                    anyProgress = true;
+                }
+            }
+
+            // Fijar las celdas bloqueadas de este paso
+            foreach (var lc in toLock)
+            {
+                if (lc.X >= 0 && lc.X < Width && lc.Y >= 0 && lc.Y < Height)
+                    Grid[lc.Y, lc.X] = lc.Cell;
+            }
+
+            // Mantener solo grupos que aún tengan alguna celda en aire
+            groups = nextGroups.Where(g => g.Cells.Any(c => Grid[c.Y, c.X].IsEmpty)).ToList();
+
+        } while (groups.Count > 0 && anyProgress);
+
+        // Si quedara algo sin fijar (sin progreso), fíjalo
+        foreach (var g in groups)
+            foreach (var c in g.Cells)
+                if (c.X >= 0 && c.X < Width && c.Y >= 0 && c.Y < Height)
+                    Grid[c.Y, c.X] = c.Cell;
     }
 
     private static readonly (int dx,int dy)[] Directions=new[]{ (1,0),(0,1),(1,1),(1,-1),(-1,0),(0,-1),(-1,-1),(-1,1) };

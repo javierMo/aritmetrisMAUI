@@ -56,7 +56,11 @@ public sealed class GameState
         }
         else
         {
-            Board.Place(CurrentPiece);
+            //Cambio: usar PlaceWithBreak para "romper" la pieza al fijar
+            //Board.PlaceWithBreak(CurrentPiece);
+            //Board.Place(CurrentPiece);
+            Board.SettleWithFallingGroups(CurrentPiece);
+
             int gained=Board.CheckMatches();
             if(gained>0)
             {

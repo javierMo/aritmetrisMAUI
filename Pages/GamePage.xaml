@@ -16,7 +16,29 @@
         <render:NextPieceView x:Name="NextPieceView" WidthRequest="120" HeightRequest="60"/>
       </VerticalStackLayout>
     </Grid>
-    <render:GameRenderer x:Name="BoardView" Grid.Row="1" VerticalOptions="FillAndExpand" HorizontalOptions="FillAndExpand"/>
+        <render:GameRenderer x:Name="BoardView"
+                     Grid.Row="1"
+                     VerticalOptions="FillAndExpand"
+                     HorizontalOptions="FillAndExpand"
+                     InputTransparent="False">
+
+            <render:GameRenderer.GestureRecognizers>
+                <!-- Tap = Rotar -->
+                <TapGestureRecognizer NumberOfTapsRequired="1"
+                          Tapped="OnTapRotate" />
+
+                <!-- Doble tap = Hard drop -->
+                <TapGestureRecognizer NumberOfTapsRequired="2"
+                          Tapped="OnDoubleTapHardDrop" />
+
+                <!-- Swipe izquierda/derecha = mover -->
+                <SwipeGestureRecognizer Direction="Left"
+                            Swiped="OnSwipeLeft" />
+                <SwipeGestureRecognizer Direction="Right"
+                            Swiped="OnSwipeRight" />
+            </render:GameRenderer.GestureRecognizers>
+        </render:GameRenderer>
+
         <Grid Grid.Row="2" ColumnDefinitions="*,*,*" Padding="0,8,0,0">
             <VerticalStackLayout Grid.Column="0" HorizontalOptions="Center">
                 <Label Text="Nivel" FontSize="12" TextColor="LightGray"/>
