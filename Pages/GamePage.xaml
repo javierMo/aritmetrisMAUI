@@ -17,21 +17,23 @@
       </VerticalStackLayout>
     </Grid>
     <render:GameRenderer x:Name="BoardView" Grid.Row="1" VerticalOptions="FillAndExpand" HorizontalOptions="FillAndExpand"/>
-    <Grid Grid.Row="2" ColumnDefinitions="*,*,*" Padding="0,8,0,0">
-      <VerticalStackLayout>
-        <Label Text="Nivel" FontSize="12" TextColor="LightGray"/>
-        <Label x:Name="LevelLabel" Text="1" FontSize="20" FontAttributes="Bold" TextColor="White"/>
-      </VerticalStackLayout>
-      <VerticalStackLayout>
-        <Label Text="Puntos" FontSize="12" TextColor="LightGray"/>
-        <Label x:Name="ScoreLabel" Text="0" FontSize="20" FontAttributes="Bold" TextColor="White"/>
-      </VerticalStackLayout>
-      <VerticalStackLayout>
-        <Label Text="Objetivo" FontSize="12" TextColor="LightGray"/>
-        <Label x:Name="TargetLabel" Text="0" FontSize="20" FontAttributes="Bold" TextColor="White"/>
-      </VerticalStackLayout>
-    </Grid>
-    <Grid x:Name="GameOverOverlay" IsVisible="False" Grid.RowSpan="3" BackgroundColor="#A0000000">
+        <Grid Grid.Row="2" ColumnDefinitions="*,*,*" Padding="0,8,0,0">
+            <VerticalStackLayout Grid.Column="0" HorizontalOptions="Center">
+                <Label Text="Nivel" FontSize="12" TextColor="LightGray"/>
+                <Label x:Name="LevelLabel" Text="1" FontSize="20" FontAttributes="Bold" TextColor="White"/>
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Grid.Column="1" HorizontalOptions="Center">
+                <Label Text="Puntos" FontSize="12" TextColor="LightGray"/>
+                <Label x:Name="ScoreLabel" Text="0" FontSize="20" FontAttributes="Bold" TextColor="White"/>
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Grid.Column="2" HorizontalOptions="Center">
+                <Label Text="Objetivo" FontSize="12" TextColor="LightGray"/>
+                <Label x:Name="TargetLabel" Text="0" FontSize="20" FontAttributes="Bold" TextColor="White"/>
+            </VerticalStackLayout>
+        </Grid>
+        <Grid x:Name="GameOverOverlay" IsVisible="False" Grid.RowSpan="3" BackgroundColor="#A0000000">
       <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="16">
         <Label Text="GAME OVER" FontSize="48" FontAttributes="Bold" TextColor="White" HorizontalTextAlignment="Center"/>
         <Button Text="Volver al menú" Clicked="OnBackToMenu" BackgroundColor="#6C5CE7" TextColor="White" CornerRadius="16" Padding="16,12"/>

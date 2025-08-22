@@ -89,3 +89,4 @@ BundleArtifacts/
 # Crash / dumps
 *.stackdump
 *.dmp
+/aritmetris_maui_20250822.zip
