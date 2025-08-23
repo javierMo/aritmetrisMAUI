@@ -1,3 +1,4 @@
+using System.Linq;
 
 namespace Aritmetris.GameCore;
 
@@ -16,6 +17,9 @@ public sealed class GameState
     public event EventHandler<int>? OnScoreChanged;
     public event EventHandler<int>? OnLevelChanged;
     public event EventHandler<int>? OnTargetChanged;
+
+    public record LevelUpDiff(int Level,int[] AddedNumbers,string[] AddedOps);
+    public event EventHandler<LevelUpDiff>? OnLevelUpDiff;
     public event EventHandler? OnGameOver;
 
     private readonly Random _rng=new();
@@ -68,11 +72,17 @@ public sealed class GameState
                 OnScoreChanged?.Invoke(this,Score);
                 if(Score>=Config.Req)
                 {
+                    var prevNums = Config.Numbers.ToArray();
+                    var prevOps  = Config.Ops.ToArray();
                     Level++;
-                    Config=LevelRules.Get(Level);
-                    Target=RandomTarget();
-                    Board.TargetValue=Target;
+                    var newCfg = LevelRules.Get(Level);
+                    var addedNums = newCfg.Numbers.Except(prevNums).ToArray();
+                    var addedOps  = newCfg.Ops.Except(prevOps).ToArray();
+                    Config = newCfg;
+                    Target = RandomTarget();
+                    Board.TargetValue = Target;
                     OnLevelChanged?.Invoke(this,Level);
+                    OnLevelUpDiff?.Invoke(this,new LevelUpDiff(Level,addedNums,addedOps));
                     OnTargetChanged?.Invoke(this,Target);
                 }
             }

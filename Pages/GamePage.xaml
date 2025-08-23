@@ -66,5 +66,13 @@
         <Button Text="Volver al menú" Clicked="OnBackToMenu" BackgroundColor="#6C5CE7" TextColor="White" CornerRadius="16" Padding="16,12"/>
       </VerticalStackLayout>
     </Grid>
-  </Grid>
+  
+        <Grid x:Name="LevelUpOverlay" IsVisible="False" Grid.RowSpan="3" BackgroundColor="#A0000000">
+          <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="12" Padding="16">
+            <Label Text="�Nivel completado!" FontSize="40" FontAttributes="Bold" TextColor="White" HorizontalTextAlignment="Center"/>
+            <VerticalStackLayout x:Name="LevelUpList" Spacing="6" />
+            <Button Text="Continuar" Clicked="OnContinueAfterLevelUp" BackgroundColor="#6C5CE7" TextColor="White" CornerRadius="16" Padding="16,12"/>
+          </VerticalStackLayout>
+        </Grid>
+    </Grid>
 </ContentPage>

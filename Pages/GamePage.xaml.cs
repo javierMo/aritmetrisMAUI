@@ -1,3 +1,4 @@
+using Microsoft.Maui.Controls;
 using Aritmetris.GameCore;
 
 #if ANDROID && DEBUG
@@ -37,6 +38,27 @@ public partial class GamePage : ContentPage
             LevelLabel.Text = l.ToString();
             if (!_softDrop) SetTimerInterval(_game.Config.DropMs);
         };
+        _game.OnLevelUpDiff += (_, diff) =>
+        {
+            // Pausar timer
+            _timer?.Stop();
+            // Limpiar lista
+            LevelUpList.Clear();
+            // Añadir diffs
+            if (diff.AddedNumbers != null && diff.AddedNumbers.Length > 0)
+            {
+                foreach (var n in diff.AddedNumbers)
+                    LevelUpList.Add(new Label { Text = $"¡nuevo valor! [{n}]", TextColor = Colors.White, FontSize = 18, HorizontalTextAlignment = TextAlignment.Center });
+            }
+            if (diff.AddedOps != null && diff.AddedOps.Length > 0)
+            {
+                foreach (var op in diff.AddedOps)
+                    LevelUpList.Add(new Label { Text = $"¡nueva operación! [{op}]", TextColor = Colors.White, FontSize = 18, HorizontalTextAlignment = TextAlignment.Center });
+            }
+            // Mostrar overlay
+            LevelUpOverlay.IsVisible = true;
+        };
+    
         _game.OnTargetChanged += (_, t) =>
         {
             TargetLabel.Text = t.ToString();
@@ -106,6 +128,14 @@ public partial class GamePage : ContentPage
             NextPieceView.InvalidateSurface();
         };
         _timer.Start();
+    }
+
+    private void OnContinueAfterLevelUp(object sender, EventArgs e)
+    {
+        LevelUpOverlay.IsVisible = false;
+        // Reanudar timer con el drop del nivel actual
+        SetTimerInterval(_game.Config.DropMs);
+        _timer?.Start();
     }
 
     void SetTimerInterval(int ms)
@@ -255,3 +285,6 @@ public partial class GamePage : ContentPage
     }
 #endif
 }
+
+
+    
