@@ -147,7 +147,12 @@ public sealed class Board
     public int CheckMatches()
     {
         var toClear=new HashSet<(int,int)>();
-        int score=0;
+        int baseCellsCleared = 0;
+        int bonusFromNumbers = 0;
+
+        // Guardamos los pares de números implicados en cada match para calcular el bonus
+        var matchNumberPairs = new List<(int n1,int n2)>();
+
         for(int y=0;y<Height;y++)
         for(int x=0;x<Width;x++)
         {
@@ -162,14 +167,26 @@ public sealed class Board
                 if(op.Type!=CellType.Operator||n2.Type!=CellType.Number) continue;
                 if(IsValidOperation(c.Value,op.Value,n2.Value))
                 {
+                    // Añadimos las 3 celdas al set de limpieza
                     toClear.Add((x,y)); toClear.Add((x1,y1)); toClear.Add((x2,y2));
-                    score+=TargetValue*10; // como en JS: puntos = matches * target * 10
+
+                    // Calculamos el bonus por números: (n1 * n2) * 5
+                    if(int.TryParse(c.Value, out var v1) && int.TryParse(n2.Value, out var v2))
+                        matchNumberPairs.Add((v1,v2));
                 }
             }
         }
+
+        baseCellsCleared = toClear.Count;
+        foreach(var (n1,n2) in matchNumberPairs)
+            bonusFromNumbers += (n1 * n2) * 5;
+
+        // Limpiar y colapsar
         foreach(var (cx,cy) in toClear) Grid[cy,cx]=Cell.Empty();
         if(toClear.Count>0) Collapse();
-        return score;
+
+        // Puntuación final: celdas eliminadas + suma((n1*n2)*5 por match)
+        return baseCellsCleared + bonusFromNumbers;
     }
 
     private bool InBounds(int x,int y)=>x>=0&&x<Width&&y>=0&&y<Height;

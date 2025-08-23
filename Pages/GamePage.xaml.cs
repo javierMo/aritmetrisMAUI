@@ -31,7 +31,7 @@ public partial class GamePage : ContentPage
         BoardView.BindGame(_game);
         NextPieceView.BindGame(_game);
 
-        _game.OnScoreChanged += (_, s) => ScoreLabel.Text = s.ToString();
+        _game.OnScoreChanged += (_, s) => { ScoreLabel.Text = s.ToString(); ReqProgressLabel.Text = $"{s} / {_game.Config.Req}"; };
         _game.OnLevelChanged += (_, l) =>
         {
             LevelLabel.Text = l.ToString();
@@ -89,7 +89,7 @@ public partial class GamePage : ContentPage
         _game.Reset();
 
         LevelLabel.Text = _game.Level.ToString();
-        ScoreLabel.Text = _game.Score.ToString();
+        ScoreLabel.Text = _game.Score.ToString(); ReqProgressLabel.Text = $"{_game.Score} / {_game.Config.Req}";
         TargetLabel.Text = _game.Target.ToString();
         ObjectiveLabel.Text = $"Objetivo: {_game.Target}";
 

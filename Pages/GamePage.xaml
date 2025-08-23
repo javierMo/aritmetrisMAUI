@@ -39,7 +39,7 @@
             </render:GameRenderer.GestureRecognizers>
         </render:GameRenderer>
 
-        <Grid Grid.Row="2" ColumnDefinitions="*,*,*" Padding="0,8,0,0">
+        <Grid Grid.Row="2" ColumnDefinitions="*,*,*,*" Padding="0,8,0,0">
             <VerticalStackLayout Grid.Column="0" HorizontalOptions="Center">
                 <Label Text="Nivel" FontSize="12" TextColor="LightGray"/>
                 <Label x:Name="LevelLabel" Text="1" FontSize="20" FontAttributes="Bold" TextColor="White"/>
@@ -53,6 +53,11 @@
             <VerticalStackLayout Grid.Column="2" HorizontalOptions="Center">
                 <Label Text="Objetivo" FontSize="12" TextColor="LightGray"/>
                 <Label x:Name="TargetLabel" Text="0" FontSize="20" FontAttributes="Bold" TextColor="White"/>
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Grid.Column="3" HorizontalOptions="Center">
+                <Label Text="Sig. nivel" FontSize="12" TextColor="LightGray"/>
+                <Label x:Name="ReqProgressLabel" Text="0 / 0" FontSize="20" FontAttributes="Bold" TextColor="White"/>
             </VerticalStackLayout>
         </Grid>
         <Grid x:Name="GameOverOverlay" IsVisible="False" Grid.RowSpan="3" BackgroundColor="#A0000000">
