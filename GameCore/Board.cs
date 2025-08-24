@@ -29,7 +29,7 @@ public sealed class Board
         return true;
     }
 
-    // Mantén tu Place existente si lo usas en otros sitios
+    // MantÃ©n tu Place existente si lo usas en otros sitios
     public void Place(Piece3 piece)
     {
         foreach (var (dx, dy, cell) in piece.GetBlocks())
@@ -42,9 +42,9 @@ public sealed class Board
 
     /// <summary>
     /// "Rompe" la pieza: cada bloque cae independientemente.
-    /// - Números: caen hasta encontrar cualquier celda NO vacía o el fondo.
-    /// - Operadores: caen hasta quedar justo encima de un Número.
-    ///   Si debajo hay vacío u operador, siguen cayendo; si no hay número, paran al fondo.
+    /// - NÃºmeros: caen hasta encontrar cualquier celda NO vacÃ­a o el fondo.
+    /// - Operadores: caen hasta quedar justo encima de un NÃºmero.
+    ///   Si debajo hay vacÃ­o u operador, siguen cayendo; si no hay nÃºmero, paran al fondo.
     /// </summary>
     public void PlaceWithBreak(Piece3 piece)
     {
@@ -61,15 +61,15 @@ public sealed class Board
                 var below = Grid[ny, x];
                 if (cell.Type == CellType.Operator)
                 {
-                    // Operador: busca quedar sobre un número
+                    // Operador: busca quedar sobre un nÃºmero
                     if (below.Type == CellType.Number) break;
                     if (below.Type == CellType.Empty) { y = ny; continue; }
-                    // debajo hay operador -> detén para no apilar operadores eternamente
+                    // debajo hay operador -> detÃ©n para no apilar operadores eternamente
                     break;
                 }
                 else
                 {
-                    // Número: detén sobre cualquier celda no vacía; si vacío, sigue
+                    // NÃºmero: detÃ©n sobre cualquier celda no vacÃ­a; si vacÃ­o, sigue
                     if (!below.IsEmpty) break;
                     y = ny;
                 }
@@ -81,10 +81,10 @@ public sealed class Board
     }
 
     /// <summary>
-    /// Asienta la pieza con caída por grupos, sin distinguir tipos de celda:
+    /// Asienta la pieza con caÃ­da por grupos, sin distinguir tipos de celda:
     /// - En cada paso, las celdas que pueden bajar bajan 1.
     /// - Las que no pueden bajar se fijan.
-    /// - Los “fragmentos” conectados de las que sí pueden bajar continúan cayendo.
+    /// - Los Â“fragmentosÂ” conectados de las que sÃ­ pueden bajar continÃºan cayendo.
     /// </summary>
     public void SettleWithFallingGroups(Piece3 piece)
     {
@@ -130,12 +130,12 @@ public sealed class Board
                     Grid[lc.Y, lc.X] = lc.Cell;
             }
 
-            // Mantener solo grupos que aún tengan alguna celda en aire
+            // Mantener solo grupos que aÃºn tengan alguna celda en aire
             groups = nextGroups.Where(g => g.Cells.Any(c => Grid[c.Y, c.X].IsEmpty)).ToList();
 
         } while (groups.Count > 0 && anyProgress);
 
-        // Si quedara algo sin fijar (sin progreso), fíjalo
+        // Si quedara algo sin fijar (sin progreso), fÃ­jalo
         foreach (var g in groups)
             foreach (var c in g.Cells)
                 if (c.X >= 0 && c.X < Width && c.Y >= 0 && c.Y < Height)
@@ -146,47 +146,128 @@ public sealed class Board
 
     public int CheckMatches()
     {
-        var toClear=new HashSet<(int,int)>();
-        int baseCellsCleared = 0;
-        int bonusFromNumbers = 0;
+        var toClear = new HashSet<(int x,int y)>();
+        int bonus = 0;
 
-        // Guardamos los pares de números implicados en cada match para calcular el bonus
-        var matchNumberPairs = new List<(int n1,int n2)>();
+        // Horizontal scan
+        for (int y = 0; y < Height; y++)
+            bonus += ScanLineAndCollect(toClear, 0, y, 1, 0);
 
-        for(int y=0;y<Height;y++)
-        for(int x=0;x<Width;x++)
+        // Vertical scan
+        for (int x = 0; x < Width; x++)
+            bonus += ScanLineAndCollect(toClear, x, 0, 0, 1);
+
+        int baseCells = toClear.Count;
+
+        foreach (var p in toClear)
+            Grid[p.y, p.x] = Cell.Empty();
+
+        if (toClear.Count > 0) Collapse();
+
+        return baseCells + bonus;
+
+        // ---- local helpers ----
+        int ScanLineAndCollect(HashSet<(int x,int y)> clear, int startX, int startY, int stepX, int stepY)
         {
-            var c=Grid[y,x];
-            if(c.Type!=CellType.Number) continue;
-            foreach(var (dx,dy) in Directions)
-            {
-                int x1=x+dx,y1=y+dy,x2=x+2*dx,y2=y+2*dy;
-                if(!InBounds(x2,y2)) continue;
-                var op=Grid[y1,x1];
-                var n2=Grid[y2,x2];
-                if(op.Type!=CellType.Operator||n2.Type!=CellType.Number) continue;
-                if(IsValidOperation(c.Value,op.Value,n2.Value))
-                {
-                    // Añadimos las 3 celdas al set de limpieza
-                    toClear.Add((x,y)); toClear.Add((x1,y1)); toClear.Add((x2,y2));
+            // Build the line
+            var xs = new List<int>();
+            var ys = new List<int>();
+            var types = new List<CellType>();
+            var values = new List<string>();
 
-                    // Calculamos el bonus por números: (n1 * n2) * 5
-                    if(int.TryParse(c.Value, out var v1) && int.TryParse(n2.Value, out var v2))
-                        matchNumberPairs.Add((v1,v2));
+            int x = startX, y = startY;
+            while (x >= 0 && x < Width && y >= 0 && y < Height)
+            {
+                xs.Add(x); ys.Add(y);
+                types.Add(Grid[y,x].Type);
+                values.Add(Grid[y,x].Value);
+                x += stepX; y += stepY;
+            }
+
+            int localBonus = 0;
+
+            for (int i = 0; i < xs.Count; i++)
+            {
+                if (types[i] != CellType.Number) continue;
+
+                // Expand alternating N/O/N/...
+                var numVals = new List<int>();
+                var numPos = new List<(int x,int y)>();
+                var opVals  = new List<string>();
+                var opPos   = new List<(int x,int y)>();
+
+                int idx = i;
+                bool expectNumber = true;
+
+                while (idx < xs.Count)
+                {
+                    if (expectNumber)
+                    {
+                        if (types[idx] != CellType.Number) break;
+                        if (!int.TryParse(values[idx], out int nv)) break;
+                        numVals.Add(nv);
+                        numPos.Add((xs[idx], ys[idx]));
+                    }
+                    else
+                    {
+                        if (types[idx] != CellType.Operator) break;
+                        opVals.Add(values[idx]);
+                        opPos.Add((xs[idx], ys[idx]));
+                    }
+
+                    expectNumber = !expectNumber;
+                    idx++;
+
+                    // When we just consumed a number, we have an odd-length sequence: 3,5,7,...
+                    if (!expectNumber && numVals.Count >= 2 && numVals.Count == opVals.Count + 1)
+                    {
+                        long product;
+                        if (EvaluateChain(numVals, opVals, out product))
+                        {
+                            // mark all cells of this sub-chain
+                            for (int k = 0; k < numPos.Count; k++)
+                                clear.Add(numPos[k]);
+                            for (int k = 0; k < opPos.Count; k++)
+                                clear.Add(opPos[k]);
+
+                            // bonus: product of all numbers * 5
+                            checked { localBonus += (int)(product * 5); }
+                        }
+                    }
                 }
             }
+
+            return localBonus;
         }
 
-        baseCellsCleared = toClear.Count;
-        foreach(var (n1,n2) in matchNumberPairs)
-            bonusFromNumbers += (n1 * n2) * 5;
+        bool EvaluateChain(List<int> nums, List<string> ops, out long product)
+        {
+            product = 1;
+            if (nums.Count < 2 || nums.Count != ops.Count + 1) return false;
 
-        // Limpiar y colapsar
-        foreach(var (cx,cy) in toClear) Grid[cy,cx]=Cell.Empty();
-        if(toClear.Count>0) Collapse();
+            long acc = nums[0];
+            product *= nums[0];
 
-        // Puntuación final: celdas eliminadas + suma((n1*n2)*5 por match)
-        return baseCellsCleared + bonusFromNumbers;
+            for (int i = 0; i < ops.Count; i++)
+            {
+                string op = ops[i];
+                int rhs = nums[i+1];
+                product *= rhs;
+
+                switch (op)
+                {
+                    case "+": acc += rhs; break;
+                    case "-": acc -= rhs; break;
+                    case "*": acc *= rhs; break;
+                    case "/":
+                        if (rhs == 0) return false;
+                        if (acc % rhs != 0) return false;
+                        acc /= rhs; break;
+                    default: return false;
+                }
+            }
+            return acc == TargetValue;
+        }
     }
 
     private bool InBounds(int x,int y)=>x>=0&&x<Width&&y>=0&&y<Height;

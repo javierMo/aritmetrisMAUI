@@ -115,6 +115,18 @@ public sealed class GameState
 
     public void MoveLeft(){ if(CurrentPiece!=null && Board.Fits(CurrentPiece,CurrentPiece.X-1,CurrentPiece.Y)) CurrentPiece.X--; }
     public void MoveRight(){ if(CurrentPiece!=null && Board.Fits(CurrentPiece,CurrentPiece.X+1,CurrentPiece.Y)) CurrentPiece.X++; }
-    public void Rotate(){ if(CurrentPiece!=null){ CurrentPiece.Rotate(); if(!Board.Fits(CurrentPiece,CurrentPiece.X,CurrentPiece.Y)) CurrentPiece.Rotate(); } }
-    public void HardDrop(){ if(CurrentPiece!=null){ while(Board.Fits(CurrentPiece,CurrentPiece.X,CurrentPiece.Y+1)) CurrentPiece.Y++; Tick(); } }
+    public void Rotate()
+    {
+        if(CurrentPiece==null) return;
+        int old=CurrentPiece.Rotation;
+        CurrentPiece.Rotate();
+        if(!Board.Fits(CurrentPiece,CurrentPiece.X,CurrentPiece.Y))
+            CurrentPiece.Rotation = old;
+    } 
+    public void HardDrop(){ 
+        if(CurrentPiece!=null){ 
+            while(Board.Fits(CurrentPiece,CurrentPiece.X,CurrentPiece.Y+1)) 
+                CurrentPiece.Y++; Tick(); 
+        } 
+    }
 }
