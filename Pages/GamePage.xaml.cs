@@ -1,15 +1,17 @@
-using Microsoft.Maui.Controls;
+ï»¿using Microsoft.Maui.Controls;
 using Aritmetris.GameCore;
 
-#if ANDROID && DEBUG
-// Alias para evitar choque con Microsoft.Maui.Controls.View
+#if ANDROID
+using Android.Views;
+using Java.Lang;
 using AView = Android.Views.View;
-using AKeyEventArgs = Android.Views.View.KeyEventArgs;
 using AKeycode = Android.Views.Keycode;
 using AKeyAction = Android.Views.KeyEventActions;
+// Para Platform.CurrentActivity
+using Platform = Microsoft.Maui.ApplicationModel.Platform;
 #endif
 
-#if WINDOWS && DEBUG
+#if WINDOWS
 using WinWindow = Microsoft.UI.Xaml.Window;
 using WinFrameworkElement = Microsoft.UI.Xaml.FrameworkElement;
 using WinFocusState = Microsoft.UI.Xaml.FocusState;
@@ -22,66 +24,21 @@ namespace Aritmetris.Pages;
 public partial class GamePage : ContentPage
 {
     private IDispatcherTimer? _timer;
-    private readonly GameState _game = new();
+    private GameState _game;
     private bool _softDrop = false;
+
+#if ANDROID
+    // Guardamos el listener para poder desengancharlo en OnDisappearing
+    private GameKeyListener? _activityKeyListener;
+#endif
 
     public GamePage()
     {
         InitializeComponent();
+        _game = new GameState();
+        WireGameToViewsAndEvents(_game);
 
-        BoardView.BindGame(_game);
-        NextPieceView.BindGame(_game);
-
-        _game.OnScoreChanged += (_, s) => { ScoreLabel.Text = s.ToString(); ReqProgressLabel.Text = $"{s} / {_game.Config.Req}"; };
-        _game.OnLevelChanged += (_, l) =>
-        {
-            LevelLabel.Text = l.ToString();
-            if (!_softDrop) SetTimerInterval(_game.Config.DropMs);
-        };
-        _game.OnLevelUpDiff += (_, diff) =>
-        {
-            // Pausar timer
-            _timer?.Stop();
-            // Limpiar lista
-            LevelUpList.Clear();
-            // Añadir diffs
-            if (diff.AddedNumbers != null && diff.AddedNumbers.Length > 0)
-            {
-                foreach (var n in diff.AddedNumbers)
-                    LevelUpList.Add(new Label { Text = $"¡nuevo valor! [{n}]", TextColor = Colors.White, FontSize = 18, HorizontalTextAlignment = TextAlignment.Center });
-            }
-            if (diff.AddedOps != null && diff.AddedOps.Length > 0)
-            {
-                foreach (var op in diff.AddedOps)
-                    LevelUpList.Add(new Label { Text = $"¡nueva operación! [{op}]", TextColor = Colors.White, FontSize = 18, HorizontalTextAlignment = TextAlignment.Center });
-            }
-            // Mostrar overlay
-            LevelUpOverlay.IsVisible = true;
-        };
-    
-        _game.OnTargetChanged += (_, t) =>
-        {
-            TargetLabel.Text = t.ToString();
-            ObjectiveLabel.Text = $"Objetivo: {t}";
-        };
-        _game.OnGameOver += (_, __) => ShowGameOver();
-
-#if ANDROID && DEBUG
-        // Conecta teclado del emulador Android a la vista nativa
-        BoardView.HandlerChanged += (_, __) =>
-        {
-            if (BoardView.Handler?.PlatformView is AView native)
-            {
-                native.Focusable = true;
-                native.FocusableInTouchMode = true;
-                native.RequestFocus();
-                native.KeyPress += OnAndroidKeyEvent; // único handler (DOWN/UP)
-            }
-        };
-#endif
-
-#if WINDOWS && DEBUG
-        // Teclado en Windows (debug)
+#if WINDOWS
         this.Loaded += (_, __) =>
         {
             var win = this.Window?.Handler?.PlatformView as WinWindow;
@@ -101,24 +58,68 @@ public partial class GamePage : ContentPage
         base.OnAppearing();
         StartNewGame();
 
-        // En Android, asegúrate de que el BoardView tenga foco (emulador)
+        // 1) Foco UI
         MainThread.BeginInvokeOnMainThread(() => BoardView.Focus());
+
+#if ANDROID
+        // 2) Listener a nivel de Window/DecorView (mÃ¡s robusto que en el BoardView)
+        var activity = Platform.CurrentActivity;
+        var decor = activity?.Window?.DecorView;
+        if (decor is not null)
+        {
+            decor.Focusable = true;
+            decor.FocusableInTouchMode = true;
+            decor.RequestFocus();
+
+            // Limpia listener previo por si reentramos
+            decor.SetOnKeyListener(null);
+            _activityKeyListener = new GameKeyListener(this);
+            decor.SetOnKeyListener(_activityKeyListener);
+        }
+#endif
     }
 
-    void StartNewGame()
+    protected override void OnDisappearing()
     {
+        base.OnDisappearing();
+        TeardownTimer();
+        _softDrop = false;
+        LevelUpOverlay.IsVisible = false;
         GameOverOverlay.IsVisible = false;
-        _game.Reset();
+
+#if ANDROID
+        // Quita el listener del DecorView para no filtrar teclas fuera de esta pÃ¡gina
+        var activity = Platform.CurrentActivity;
+        var decor = activity?.Window?.DecorView;
+        if (decor is not null)
+        {
+            decor.SetOnKeyListener(null);
+        }
+        _activityKeyListener = null;
+#endif
+    }
+
+    // =======================
+    // CICLO DE JUEGO
+    // =======================
+    private void StartNewGame()
+    {
+        _game = new GameState();
+        WireGameToViewsAndEvents(_game);
+
+        LevelUpOverlay.IsVisible = false;
+        GameOverOverlay.IsVisible = false;
 
         LevelLabel.Text = _game.Level.ToString();
-        ScoreLabel.Text = _game.Score.ToString(); ReqProgressLabel.Text = $"{_game.Score} / {_game.Config.Req}";
+        ScoreLabel.Text = _game.Score.ToString();
+        ReqProgressLabel.Text = $"{_game.Score} / {_game.Config.Req}";
         TargetLabel.Text = _game.Target.ToString();
         ObjectiveLabel.Text = $"Objetivo: {_game.Target}";
 
         BoardView.InvalidateSurface();
         NextPieceView.InvalidateSurface();
 
-        _timer?.Stop();
+        TeardownTimer();
         _timer = Microsoft.Maui.Controls.Application.Current!.Dispatcher.CreateTimer();
         SetTimerInterval(_game.Config.DropMs);
         _timer.Tick += (_, __) =>
@@ -130,21 +131,71 @@ public partial class GamePage : ContentPage
         _timer.Start();
     }
 
+    private void WireGameToViewsAndEvents(GameState game)
+    {
+        BoardView.BindGame(game);
+        NextPieceView.BindGame(game);
+
+        game.OnScoreChanged += null;
+        game.OnLevelChanged += null;
+        game.OnLevelUpDiff += null;
+        game.OnTargetChanged += null;
+        game.OnGameOver += null;
+
+        game.OnScoreChanged += (_, s) =>
+        {
+            ScoreLabel.Text = s.ToString();
+            ReqProgressLabel.Text = $"{s} / {game.Config.Req}";
+        };
+        game.OnLevelChanged += (_, l) =>
+        {
+            LevelLabel.Text = l.ToString();
+            if (!_softDrop) SetTimerInterval(game.Config.DropMs);
+        };
+        game.OnLevelUpDiff += (_, diff) =>
+        {
+            _timer?.Stop();
+            LevelUpList.Clear();
+            if (diff.AddedNumbers is { Length: > 0 })
+                foreach (var n in diff.AddedNumbers)
+                    LevelUpList.Add(new Label { Text = $"Â¡nuevo valor! [{n}]", TextColor = Colors.White, FontSize = 18, HorizontalTextAlignment = Microsoft.Maui.TextAlignment.Center });
+            if (diff.AddedOps is { Length: > 0 })
+                foreach (var op in diff.AddedOps)
+                    LevelUpList.Add(new Label { Text = $"Â¡nueva operaciÃ³n! [{op}]", TextColor = Colors.White, FontSize = 18, HorizontalTextAlignment = Microsoft.Maui.TextAlignment.Center });
+            LevelUpOverlay.IsVisible = true;
+        };
+        game.OnTargetChanged += (_, t) =>
+        {
+            TargetLabel.Text = t.ToString();
+            ObjectiveLabel.Text = $"Objetivo: {t}";
+        };
+        game.OnGameOver += (_, __) => ShowGameOver();
+    }
+
+    private void TeardownTimer()
+    {
+        if (_timer != null)
+        {
+            _timer.Stop();
+            _timer = null;
+        }
+    }
+
     private void OnContinueAfterLevelUp(object sender, EventArgs e)
     {
         LevelUpOverlay.IsVisible = false;
-        // Reanudar timer con el drop del nivel actual
         SetTimerInterval(_game.Config.DropMs);
         _timer?.Start();
+        MainThread.BeginInvokeOnMainThread(() => BoardView.Focus());
     }
 
-    void SetTimerInterval(int ms)
+    private void SetTimerInterval(int ms)
     {
         if (_timer != null)
             _timer.Interval = TimeSpan.FromMilliseconds(ms);
     }
 
-    void ShowGameOver()
+    private void ShowGameOver()
     {
         _timer?.Stop();
         GameOverOverlay.IsVisible = true;
@@ -152,139 +203,91 @@ public partial class GamePage : ContentPage
 
     private async void OnBackToMenu(object sender, EventArgs e)
     {
+        TeardownTimer();
+        LevelUpOverlay.IsVisible = false;
+        GameOverOverlay.IsVisible = false;
+        _softDrop = false;
         await Shell.Current.GoToAsync("//MenuPage");
     }
 
     // =======================
-    // GESTOS TÁCTILES (Android+iOS)
+    // GESTOS TÃCTILES (Android+iOS)
     // =======================
-    private void OnTapRotate(object? sender, TappedEventArgs e)
-    {
-        _game.Rotate();
-        BoardView.InvalidateSurface();
-    }
-
-    private void OnDoubleTapHardDrop(object? sender, TappedEventArgs e)
-    {
-        _game.HardDrop();
-        BoardView.InvalidateSurface();
-        NextPieceView.InvalidateSurface();
-    }
-
-    private void OnSwipeLeft(object? sender, SwipedEventArgs e)
-    {
-        _game.MoveLeft();
-        BoardView.InvalidateSurface();
-    }
-
-    private void OnSwipeRight(object? sender, SwipedEventArgs e)
-    {
-        _game.MoveRight();
-        BoardView.InvalidateSurface();
-    }
+    private void OnTapRotate(object? sender, TappedEventArgs e) { _game.Rotate(); BoardView.InvalidateSurface(); }
+    private void OnDoubleTapHardDrop(object? sender, TappedEventArgs e) { _game.HardDrop(); BoardView.InvalidateSurface(); NextPieceView.InvalidateSurface(); }
+    private void OnSwipeLeft(object? sender, SwipedEventArgs e) { _game.MoveLeft(); BoardView.InvalidateSurface(); }
+    private void OnSwipeRight(object? sender, SwipedEventArgs e) { _game.MoveRight(); BoardView.InvalidateSurface(); }
 
     // =======================
-    // TECLADO (Android emulador) — solo DEBUG
+    // MÃ‰TODOS UNIFICADOS DE INPUT
     // =======================
-#if ANDROID && DEBUG
-    private void OnAndroidKeyEvent(object? sender, AKeyEventArgs e)
+    private void KeyMoveLeft() { _game.MoveLeft(); BoardView.InvalidateSurface(); }
+    private void KeyMoveRight() { _game.MoveRight(); BoardView.InvalidateSurface(); }
+    private void KeyRotate() { _game.Rotate(); BoardView.InvalidateSurface(); }
+    private void KeyHardDrop() { _game.HardDrop(); BoardView.InvalidateSurface(); NextPieceView.InvalidateSurface(); }
+    private void KeySoftDropStart()
     {
-        if (e?.Event == null) return;
-
-        var action = e.Event.Action;   // Down / Up
-        var key    = e.KeyCode;
-
-        if (action == AKeyAction.Down)
-        {
-            switch (key)
-            {
-                case AKeycode.DpadLeft:
-                    if (e.Event.RepeatCount == 0) { _game.MoveLeft(); BoardView.InvalidateSurface(); }
-                    e.Handled = true; break;
-
-                case AKeycode.DpadRight:
-                    if (e.Event.RepeatCount == 0) { _game.MoveRight(); BoardView.InvalidateSurface(); }
-                    e.Handled = true; break;
-
-                case AKeycode.DpadUp:
-                    if (e.Event.RepeatCount == 0) { _game.HardDrop(); BoardView.InvalidateSurface(); NextPieceView.InvalidateSurface(); }
-                    e.Handled = true; break;
-
-                case AKeycode.Space:
-                    if (e.Event.RepeatCount == 0) { _game.Rotate(); BoardView.InvalidateSurface(); }
-                    e.Handled = true; break;
-
-                case AKeycode.DpadDown:
-                    if (!_softDrop)
-                    {
-                        _softDrop = true;
-                        SetTimerInterval(Math.Max(50, _game.Config.DropMs / 8)); // acelera
-                    }
-                    e.Handled = true; break;
-            }
-        }
-        else if (action == AKeyAction.Up)
-        {
-            if (key == AKeycode.DpadDown)
-            {
-                _softDrop = false;
-                SetTimerInterval(_game.Config.DropMs); // normal
-                e.Handled = true;
-            }
-        }
+        if (!_softDrop) { _softDrop = true; SetTimerInterval(System.Math.Max(50, _game.Config.DropMs / 8)); }
     }
-#endif
+    private void KeySoftDropStop()
+    {
+        if (_softDrop) { _softDrop = false; SetTimerInterval(_game.Config.DropMs); }
+    }
 
+#if WINDOWS
     // =======================
-    // TECLADO (Windows) — solo DEBUG
+    // TECLADO (Windows)
     // =======================
-#if WINDOWS && DEBUG
     private void OnWinKeyUp(object sender, WinKeyRoutedEventArgs e)
     {
-        if (e.Key == WinVirtualKey.Down)
-        {
-            _softDrop = false;
-            SetTimerInterval(_game.Config.DropMs);
-            e.Handled = true;
-        }
+        if (e.Key == WinVirtualKey.Down) { KeySoftDropStop(); e.Handled = true; }
     }
-
     private void OnWinKeyDown(object sender, WinKeyRoutedEventArgs e)
     {
         switch (e.Key)
         {
-            case WinVirtualKey.Left:
-                _game.MoveLeft();
-                BoardView.InvalidateSurface();
-                e.Handled = true; break;
+            case WinVirtualKey.Left:  KeyMoveLeft();  e.Handled = true; break;
+            case WinVirtualKey.Right: KeyMoveRight(); e.Handled = true; break;
+            case WinVirtualKey.Up:    KeyHardDrop();  e.Handled = true; break;
+            case WinVirtualKey.Space: KeyRotate();    e.Handled = true; break;
+            case WinVirtualKey.Down:  KeySoftDropStart(); e.Handled = true; break;
+        }
+    }
+#endif
 
-            case WinVirtualKey.Right:
-                _game.MoveRight();
-                BoardView.InvalidateSurface();
-                e.Handled = true; break;
+#if ANDROID
+    // =======================
+    // TECLADO (Android) â€” a nivel de DecorView
+    // =======================
+    private sealed class GameKeyListener : Java.Lang.Object, AView.IOnKeyListener
+    {
+        private readonly GamePage _page;
+        public GameKeyListener(GamePage page) => _page = page;
 
-            case WinVirtualKey.Up:
-                _game.HardDrop();
-                BoardView.InvalidateSurface();
-                NextPieceView.InvalidateSurface();
-                e.Handled = true; break;
+        public bool OnKey(AView? v, AKeycode keyCode, KeyEvent? e)
+        {
+            if (e is null) return false;
 
-            case WinVirtualKey.Space:
-                _game.Rotate();
-                BoardView.InvalidateSurface();
-                e.Handled = true; break;
-
-            case WinVirtualKey.Down:
-                if (!_softDrop)
+            if (e.Action == AKeyAction.Down)
+            {
+                bool firstPress = e.RepeatCount == 0;
+                switch (keyCode)
                 {
-                    _softDrop = true;
-                    SetTimerInterval(Math.Max(50, _game.Config.DropMs / 8));
+                    case AKeycode.DpadLeft: if (firstPress) _page.KeyMoveLeft(); return true;
+                    case AKeycode.DpadRight: if (firstPress) _page.KeyMoveRight(); return true;
+                    case AKeycode.DpadUp: if (firstPress) _page.KeyHardDrop(); return true;
+                    case AKeycode.Space:
+                    case AKeycode.ButtonA: if (firstPress) _page.KeyRotate(); return true;
+                    case AKeycode.DpadDown: _page.KeySoftDropStart(); return true;
                 }
-                e.Handled = true; break;
+            }
+            else if (e.Action == AKeyAction.Up && keyCode == AKeycode.DpadDown)
+            {
+                _page.KeySoftDropStop();
+                return true;
+            }
+            return false;
         }
     }
 #endif
 }
-
-
-    
