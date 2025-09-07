@@ -3,12 +3,6 @@ using Aritmetris.GameCore;
 
 #if ANDROID
 using Android.Views;
-using Java.Lang;
-using AView = Android.Views.View;
-using AKeycode = Android.Views.Keycode;
-using AKeyAction = Android.Views.KeyEventActions;
-// Para Platform.CurrentActivity
-using Platform = Microsoft.Maui.ApplicationModel.Platform;
 #endif
 
 #if WINDOWS
@@ -28,8 +22,8 @@ public partial class GamePage : ContentPage
     private bool _softDrop = false;
 
 #if ANDROID
-    // Guardamos el listener para poder desengancharlo en OnDisappearing
-    private GameKeyListener? _activityKeyListener;
+    // MainActivity llamará a este delegado para pasar las teclas Android aquí.
+    internal static Func<KeyEvent, bool>? HandleAndroidKeyEventStatic;
 #endif
 
     public GamePage()
@@ -58,25 +52,12 @@ public partial class GamePage : ContentPage
         base.OnAppearing();
         StartNewGame();
 
-        // 1) Foco UI
-        MainThread.BeginInvokeOnMainThread(() => BoardView.Focus());
-
 #if ANDROID
-        // 2) Listener a nivel de Window/DecorView (más robusto que en el BoardView)
-        var activity = Platform.CurrentActivity;
-        var decor = activity?.Window?.DecorView;
-        if (decor is not null)
-        {
-            decor.Focusable = true;
-            decor.FocusableInTouchMode = true;
-            decor.RequestFocus();
-
-            // Limpia listener previo por si reentramos
-            decor.SetOnKeyListener(null);
-            _activityKeyListener = new GameKeyListener(this);
-            decor.SetOnKeyListener(_activityKeyListener);
-        }
+        // Registramos el manejador estático para que MainActivity nos reenvíe las teclas
+        HandleAndroidKeyEventStatic = HandleAndroidKeyEvent;
 #endif
+
+        MainThread.BeginInvokeOnMainThread(() => BoardView.Focus());
     }
 
     protected override void OnDisappearing()
@@ -88,14 +69,8 @@ public partial class GamePage : ContentPage
         GameOverOverlay.IsVisible = false;
 
 #if ANDROID
-        // Quita el listener del DecorView para no filtrar teclas fuera de esta página
-        var activity = Platform.CurrentActivity;
-        var decor = activity?.Window?.DecorView;
-        if (decor is not null)
-        {
-            decor.SetOnKeyListener(null);
-        }
-        _activityKeyListener = null;
+        // Muy importante limpiar el delegado para no filtrar teclas fuera de esta página
+        HandleAndroidKeyEventStatic = null;
 #endif
     }
 
@@ -256,38 +231,31 @@ public partial class GamePage : ContentPage
 #endif
 
 #if ANDROID
-    // =======================
-    // TECLADO (Android) — a nivel de DecorView
-    // =======================
-    private sealed class GameKeyListener : Java.Lang.Object, AView.IOnKeyListener
+    // Recibe las teclas desde MainActivity a nivel global (sin depender de foco).
+    private bool HandleAndroidKeyEvent(KeyEvent e)
     {
-        private readonly GamePage _page;
-        public GameKeyListener(GamePage page) => _page = page;
+        if (e is null) return false;
 
-        public bool OnKey(AView? v, AKeycode keyCode, KeyEvent? e)
+        if (e.Action == KeyEventActions.Down)
         {
-            if (e is null) return false;
-
-            if (e.Action == AKeyAction.Down)
+            bool firstPress = e.RepeatCount == 0;
+            switch (e.KeyCode)
             {
-                bool firstPress = e.RepeatCount == 0;
-                switch (keyCode)
-                {
-                    case AKeycode.DpadLeft: if (firstPress) _page.KeyMoveLeft(); return true;
-                    case AKeycode.DpadRight: if (firstPress) _page.KeyMoveRight(); return true;
-                    case AKeycode.DpadUp: if (firstPress) _page.KeyHardDrop(); return true;
-                    case AKeycode.Space:
-                    case AKeycode.ButtonA: if (firstPress) _page.KeyRotate(); return true;
-                    case AKeycode.DpadDown: _page.KeySoftDropStart(); return true;
-                }
+                case Keycode.DpadLeft: if (firstPress) KeyMoveLeft(); return true;
+                case Keycode.DpadRight: if (firstPress) KeyMoveRight(); return true;
+                case Keycode.DpadUp: if (firstPress) KeyHardDrop(); return true;
+                case Keycode.Space:
+                case Keycode.ButtonA: if (firstPress) KeyRotate(); return true;
+                case Keycode.DpadDown: KeySoftDropStart(); return true;
             }
-            else if (e.Action == AKeyAction.Up && keyCode == AKeycode.DpadDown)
-            {
-                _page.KeySoftDropStop();
-                return true;
-            }
-            return false;
         }
+        else if (e.Action == KeyEventActions.Up && e.KeyCode == Keycode.DpadDown)
+        {
+            KeySoftDropStop();
+            return true;
+        }
+
+        return false;
     }
 #endif
 }

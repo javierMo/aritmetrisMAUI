@@ -79,11 +79,14 @@ public sealed class GameState
                     var addedNums = newCfg.Numbers.Except(prevNums).ToArray();
                     var addedOps  = newCfg.Ops.Except(prevOps).ToArray();
                     Config = newCfg;
-                    Target = RandomTarget();
-                    Board.TargetValue = Target;
+                    
                     OnLevelChanged?.Invoke(this,Level);
                     OnLevelUpDiff?.Invoke(this,new LevelUpDiff(Level,addedNums,addedOps));
-                    OnTargetChanged?.Invoke(this,Target);
+                    RerollTarget();
+                }
+                else
+                {
+                    RerollTarget();
                 }
             }
             SpawnNextPiece();
@@ -110,6 +113,19 @@ public sealed class GameState
         string op=Config.Ops[_rng.Next(Config.Ops.Length)];
         return new Piece3(n1.ToString(),op,n2.ToString());
     }
+
+    private void RerollTarget()
+    {
+        // Si ya tienes RandomTarget(), reutilízalo:
+        Target = RandomTarget();
+
+        // Mantén sincronizado el tablero:
+        Board.TargetValue = Target;
+
+        // Notifica a la UI:
+        OnTargetChanged?.Invoke(this, Target);
+    }
+
 
     int RandomTarget()=>_rng.Next(Config.TargetMin,Config.TargetMax+1);
 
